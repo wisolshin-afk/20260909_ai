@@ -1,5 +1,5 @@
 import random
-
+#소스 변경 테스트
 
 def play_game() -> int:
     secret_number = random.randint(1, 100)
