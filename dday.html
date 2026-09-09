@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>계약 만료 D-Day 카운터</title>
+    <style>
+      :root {
+        --bg: #f3f6fb;
+        --card: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --green: #22c55e;
+        --orange: #f59e0b;
+        --red: #ef4444;
+        --primary: #2563eb;
+        --primary-soft: #dbeafe;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #eef4ff, #f6f7fb);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 920px;
+        margin: 48px auto;
+        padding: 24px;
+      }
+
+      .panel {
+        background: var(--card);
+        border-radius: 20px;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.09);
+        padding: 28px;
+      }
+
+      h1 {
+        text-align: center;
+        margin: 0 0 24px;
+        font-size: 30px;
+      }
+
+      .form {
+        display: grid;
+        grid-template-columns: 1.6fr 1.2fr auto;
+        gap: 12px;
+        margin-bottom: 22px;
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 15px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
+
+      button {
+        border: none;
+        background: var(--primary);
+        color: #fff;
+        padding: 12px 18px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #1d4ed8;
+      }
+
+      .secondary-btn {
+        background: #e5e7eb;
+        color: #374151;
+      }
+
+      .secondary-btn:hover {
+        background: #d1d5db;
+      }
+
+      .list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .contract-item {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr auto auto auto;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 18px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #fbfdff;
+      }
+
+      .contract-name {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .contract-date {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .d-day-box {
+        min-width: 150px;
+        text-align: center;
+        padding: 10px 12px;
+        border-radius: 12px;
+        font-size: 30px;
+        font-weight: 800;
+        color: white;
+      }
+
+      .d-day-box.green { background: var(--green); }
+      .d-day-box.orange { background: var(--orange); }
+      .d-day-box.red { background: var(--red); }
+
+      .action-btn {
+        background: #eef2ff;
+        color: #374151;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .action-btn:hover {
+        background: #e0e7ff;
+      }
+
+      .edit-btn {
+        background: #ecfeff;
+        color: #0f766e;
+      }
+
+      .edit-btn:hover {
+        background: #cffafe;
+      }
+
+      .delete-btn {
+        background: #fef2f2;
+        color: #b91c1c;
+      }
+
+      .delete-btn:hover {
+        background: #fee2e2;
+      }
+
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 18px;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        background: #f9fafb;
+      }
+
+      @media (max-width: 760px) {
+        .form {
+          grid-template-columns: 1fr;
+        }
+
+        .contract-item {
+          grid-template-columns: 1fr;
+          text-align: center;
+        }
+
+        .d-day-box {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="panel">
+        <h1>계약 만료 D-Day 카운터</h1>
+
+        <div class="form">
+          <input id="contractName" type="text" placeholder="계약명 입력" aria-label="계약명" />
+          <input id="contractDate" type="date" aria-label="만료일" />
+          <div class="form-actions">
+            <button id="addContractBtn" type="button">추가</button>
+            <button id="cancelEditBtn" type="button" class="secondary-btn" hidden>취소</button>
+          </div>
+        </div>
+
+        <div id="contractList" class="list"></div>
+      </div>
+    </div>
+
+    <script>
+      const contracts = [
+        { id: 1, name: '클라우드 서비스 계약', date: '2026-09-30' },
+        { id: 2, name: '사무실 임대 계약', date: '2026-10-15' },
+        { id: 3, name: '개발자 인력 계약', date: '2026-11-02' }
+      ];
+
+      const addContractBtn = document.getElementById('addContractBtn');
+      const cancelEditBtn = document.getElementById('cancelEditBtn');
+      let editingId = null;
+
+      function resetForm() {
+        editingId = null;
+        addContractBtn.textContent = '추가';
+        cancelEditBtn.hidden = true;
+        document.getElementById('contractName').value = '';
+        document.getElementById('contractDate').value = '';
+      }
+
+      function getDaysLeft(targetDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const target = new Date(targetDate);
+        target.setHours(0, 0, 0, 0);
+
+        const diff = target - today;
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+      }
+
+      function getStatusColor(daysLeft) {
+        if (daysLeft <= 30) return 'red';
+        if (daysLeft <= 60) return 'orange';
+        return 'green';
+      }
+
+      function sortContracts(list) {
+        return [...list].sort((a, b) => {
+          const aDays = getDaysLeft(a.date);
+          const bDays = getDaysLeft(b.date);
+          return aDays - bDays;
+        });
+      }
+
+      function renderContracts() {
+        const listEl = document.getElementById('contractList');
+        const sorted = sortContracts(contracts);
+
+        if (sorted.length === 0) {
+          listEl.innerHTML = '<div class="empty">등록된 계약이 없습니다.</div>';
+          return;
+        }
+
+        listEl.innerHTML = sorted.map((contract) => {
+          const daysLeft = getDaysLeft(contract.date);
+          const color = getStatusColor(daysLeft);
+          const dDayText = daysLeft === 0 ? 'D-Day' : `D-${daysLeft}`;
+
+          return `
+            <div class="contract-item">
+              <div>
+                <div class="contract-name">${contract.name}</div>
+                <div class="contract-date">만료일: ${contract.date}</div>
+              </div>
+
+              <div class="d-day-box ${color}">${dDayText}</div>
+
+              <div class="contract-date">남은 일수: ${daysLeft}일</div>
+
+              <button class="action-btn edit-btn" data-action="edit" data-id="${contract.id}">수정</button>
+              <button class="action-btn delete-btn" data-action="delete" data-id="${contract.id}">삭제</button>
+            </div>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.action-btn').forEach((button) => {
+          button.addEventListener('click', () => {
+            const id = Number(button.dataset.id);
+            const action = button.dataset.action;
+
+            if (action === 'delete') {
+              const index = contracts.findIndex((contract) => contract.id === id);
+              if (index !== -1) {
+                contracts.splice(index, 1);
+                if (editingId === id) {
+                  resetForm();
+                }
+                renderContracts();
+              }
+              return;
+            }
+
+            if (action === 'edit') {
+              const target = contracts.find((contract) => contract.id === id);
+              if (!target) return;
+
+              editingId = id;
+              document.getElementById('contractName').value = target.name;
+              document.getElementById('contractDate').value = target.date;
+              addContractBtn.textContent = '수정 완료';
+              cancelEditBtn.hidden = false;
+            }
+          });
+        });
+      }
+
+      addContractBtn.addEventListener('click', () => {
+        const name = document.getElementById('contractName').value.trim();
+        const date = document.getElementById('contractDate').value;
+
+        if (!name || !date) {
+          alert('계약명과 만료일을 모두 입력해주세요.');
+          return;
+        }
+
+        if (editingId !== null) {
+          const index = contracts.findIndex((contract) => contract.id === editingId);
+          if (index !== -1) {
+            contracts[index].name = name;
+            contracts[index].date = date;
+          }
+        } else {
+          contracts.push({
+            id: Date.now(),
+            name,
+            date
+          });
+        }
+
+        resetForm();
+        renderContracts();
+      });
+
+      cancelEditBtn.addEventListener('click', () => {
+        resetForm();
+      });
+
+      renderContracts();
+    </script>
+  </body>
+</html>

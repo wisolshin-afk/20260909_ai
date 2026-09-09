@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>월별 채용 현황</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f5f7fb;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        padding: 32px 40px 24px;
+      }
+
+      h1 {
+        text-align: center;
+        margin: 0 0 24px;
+        color: #1f2937;
+        font-size: 28px;
+      }
+
+      canvas {
+        width: 100%;
+        height: 500px;
+        display: block;
+        background: #ffffff;
+      }
+
+      .legend {
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+        color: #374151;
+        font-size: 14px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .legend-line {
+        width: 18px;
+        height: 4px;
+        border-radius: 999px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>월별 채용 현황 추이</h1>
+      <canvas id="chartCanvas" width="900" height="500"></canvas>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-line" style="background:#2563eb"></span>지원자수</div>
+        <div class="legend-item"><span class="legend-line" style="background:#10b981"></span>서류 합격자수</div>
+        <div class="legend-item"><span class="legend-line" style="background:#f59e0b"></span>최종 입사자수</div>
+      </div>
+    </div>
+
+    <script>
+      const rawData = [
+        { month: 1, applicant: 45, pass: 12, hired: 3 },
+        { month: 2, applicant: 38, pass: 10, hired: 2 },
+        { month: 3, applicant: 72, pass: 20, hired: 6 },
+        { month: 4, applicant: 89, pass: 25, hired: 8 },
+        { month: 5, applicant: 61, pass: 18, hired: 5 },
+        { month: 6, applicant: 95, pass: 28, hired: 9 }
+      ];
+
+      const canvas = document.getElementById('chartCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const padding = { top: 30, right: 30, bottom: 50, left: 60 };
+      const chartWidth = canvas.width - padding.left - padding.right;
+      const chartHeight = canvas.height - padding.top - padding.bottom;
+
+      const maxValue = Math.max(
+        ...rawData.flatMap(item => [item.applicant, item.pass, item.hired])
+      );
+      const yMax = Math.ceil(maxValue / 10) * 10;
+      const xStep = chartWidth / (rawData.length - 1);
+
+      function drawGrid() {
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#4b5563';
+
+        for (let i = 0; i <= 5; i++) {
+          const y = padding.top + (chartHeight / 5) * i;
+          const value = Math.round(yMax - (yMax / 5) * i);
+
+          ctx.beginPath();
+          ctx.moveTo(padding.left, y);
+          ctx.lineTo(canvas.width - padding.right, y);
+          ctx.stroke();
+
+          ctx.fillText(value, padding.left - 16, y + 4);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, canvas.height - padding.bottom);
+        ctx.lineTo(canvas.width - padding.right, canvas.height - padding.bottom);
+        ctx.stroke();
+      }
+
+      function drawXAxis() {
+        ctx.fillStyle = '#374151';
+        ctx.font = '12px sans-serif';
+
+        rawData.forEach((item, index) => {
+          const x = padding.left + xStep * index;
+          ctx.fillText(`월 ${item.month}`, x - 10, canvas.height - 20);
+        });
+      }
+
+      function drawLine(dataKey, color, label) {
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+
+        rawData.forEach((item, index) => {
+          const x = padding.left + xStep * index;
+          const value = item[dataKey];
+          const y = padding.top + chartHeight - (value / yMax) * chartHeight;
+
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+
+        ctx.stroke();
+
+        rawData.forEach((item, index) => {
+          const x = padding.left + xStep * index;
+          const value = item[dataKey];
+          const y = padding.top + chartHeight - (value / yMax) * chartHeight;
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      function drawChart() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+        drawXAxis();
+        drawLine('applicant', '#2563eb');
+        drawLine('pass', '#10b981');
+        drawLine('hired', '#f59e0b');
+
+        ctx.fillStyle = '#1f2937';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText('인원 수', 18, 24);
+        ctx.fillText('월', canvas.width - 90, canvas.height - 5);
+      }
+
+      drawChart();
+    </script>
+  </body>
+</html>
