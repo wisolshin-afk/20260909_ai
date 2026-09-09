@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>실시간 날씨</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root {
+      --sky-1: #dff6ff;
+      --sky-2: #bfe7ff;
+      --card: rgba(255, 255, 255, 0.78);
+      --card-border: rgba(255, 255, 255, 0.9);
+      --text: #1f2937;
+      --muted: #475569;
+      --primary: #3b82f6;
+      --shadow: rgba(59, 130, 246, 0.18);
+      --chip: rgba(59, 130, 246, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(180deg, var(--sky-1), var(--sky-2));
+      font-family: Arial, sans-serif;
+      color: var(--text);
+    }
+
+    .container {
+      width: min(92vw, 500px);
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 26px;
+      box-shadow: 0 18px 50px var(--shadow);
+      padding: 24px 20px 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    .search-box {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .search-box input {
+      flex: 1;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      font-size: 1rem;
+      background: rgba(255,255,255,0.7);
+    }
+
+    .search-box button {
+      border: none;
+      border-radius: 12px;
+      padding: 14px 18px;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .weather-card {
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(148,163,184,0.2);
+      border-radius: 22px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .city-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .city-name {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .country-tag {
+      display: inline-block;
+      margin-top: 6px;
+      background: var(--chip);
+      color: #1d4ed8;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .weather-icon {
+      font-size: 2.8rem;
+      line-height: 1;
+    }
+
+    .temp {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .description {
+      font-size: 1.15rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      font-size: 0.96rem;
+      color: var(--muted);
+    }
+
+    .meta-item {
+      background: rgba(148, 163, 184, 0.08);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .map-box {
+      width: 100%;
+      height: 220px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(148,163,184,0.25);
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #dbeafe;
+      z-index: 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 28px 16px;
+      font-size: 1rem;
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 16px 14px; }
+      .temp { font-size: 2.5rem; }
+      .meta { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="search-box">
+      <input id="cityInput" type="text" value="Seoul" placeholder="도시 이름을 입력하세요" />
+      <button id="searchBtn">검색</button>
+    </div>
+
+    <div id="weatherCard" class="weather-card"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    const geoApi = 'https://geocoding-api.open-meteo.com/v1/search';
+    const weatherApi = 'https://api.open-meteo.com/v1/forecast';
+    const reverseGeoApi = 'https://geocoding-api.open-meteo.com/v1/reverse';
+
+    const cityInput = document.getElementById('cityInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const weatherCard = document.getElementById('weatherCard');
+
+    let map = null;
+    let marker = null;
+
+    function makeLoadingView() {
+      weatherCard.innerHTML = '<div class="empty-state">날씨를 불러오는 중...</div>';
+    }
+
+    function initMap() {
+      if (map) return;
+      const mapEl = document.getElementById('map');
+      if (!mapEl) return;
+
+      map = L.map('map', {
+        zoomControl: true,
+        scrollWheelZoom: true,
+        dragging: true
+      }).setView([37.5665, 126.978], 10);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      map.on('click', async (event) => {
+        await fetchWeatherByCoordinates(event.latlng.lat, event.latlng.lng);
+      });
+    }
+
+    function setMapLocation(lat, lon, label) {
+      if (!map) return;
+      const position = [lat, lon];
+      map.setView(position, 10);
+
+      if (marker) {
+        map.removeLayer(marker);
+      }
+
+      marker = L.marker(position).addTo(map);
+      marker.bindPopup(label).openPopup();
+    }
+
+    const weatherMap = {
+      0: { icon: '☀️', text: '맑음' },
+      1: { icon: '🌤️', text: '대체로 맑음' },
+      2: { icon: '⛅', text: '부분적으로 흐림' },
+      3: { icon: '☁️', text: '흐림' },
+      45: { icon: '🌫️', text: '안개' },
+      48: { icon: '🌫️', text: '서리 안개' },
+      51: { icon: '🌦️', text: '가벼운 이슬비' },
+      53: { icon: '🌦️', text: '이슬비' },
+      55: { icon: '🌧️', text: '강한 이슬비' },
+      56: { icon: '🌧️', text: '약한 빙결 비' },
+      57: { icon: '🌧️', text: '강한 빙결 비' },
+      61: { icon: '🌧️', text: '가벼운 비' },
+      63: { icon: '🌧️', text: '비' },
+      65: { icon: '🌧️', text: '강한 비' },
+      66: { icon: '🌧️', text: '가벼운 우박비' },
+      67: { icon: '🌧️', text: '강한 우박비' },
+      71: { icon: '🌨️', text: '가벼운 눈' },
+      73: { icon: '🌨️', text: '눈' },
+      75: { icon: '🌨️', text: '강한 눈' },
+      77: { icon: '🌨️', text: '눈 알갱이' },
+      80: { icon: '🌦️', text: '소나기' },
+      81: { icon: '🌧️', text: '강한 소나기' },
+      82: { icon: '🌧️', text: '매우 강한 소나기' },
+      85: { icon: '🌨️', text: '가벼운 눈 소나기' },
+      86: { icon: '🌨️', text: '강한 눈 소나기' },
+      95: { icon: '⛈️', text: '뇌우' },
+      96: { icon: '⛈️', text: '뇌우(우박)' },
+      99: { icon: '⛈️', text: '강한 뇌우(우박)' }
+    };
+
+    function renderWeather(data) {
+      const city = data.city;
+      const country = data.country;
+      const weather = data.weather;
+      const info = weatherMap[weather.weather_code] || { icon: '❔', text: '알 수 없음' };
+      const precipitationProbability = weather.precipitation_probability ?? weather.precipitation ?? 0;
+
+      weatherCard.innerHTML = `
+        <div class="city-row">
+          <div>
+            <div class="city-name">${city}</div>
+            <span class="country-tag">${country}</span>
+          </div>
+          <div class="weather-icon">${info.icon}</div>
+        </div>
+
+        <div class="temp">${Math.round(weather.temperature_2m)}°C</div>
+        <div class="description">${info.text}</div>
+
+        <div class="meta">
+          <div class="meta-item">체감온도: ${Math.round(weather.apparent_temperature)}°C</div>
+          <div class="meta-item">습도: ${weather.relative_humidity_2m}%</div>
+          <div class="meta-item">강수확률: ${precipitationProbability}%</div>
+          <div class="meta-item">풍속: ${weather.wind_speed_10m ?? 0} km/h</div>
+        </div>
+
+        <div class="map-box">
+          <div id="map"></div>
+        </div>
+      `;
+
+      initMap();
+      setMapLocation(data.lat, data.lon, `${city}, ${country}`);
+    }
+
+    async function fetchWeatherByCoordinates(lat, lon) {
+      makeLoadingView();
+
+      try {
+        const reverseRes = await fetch(`${reverseGeoApi}?latitude=${lat}&longitude=${lon}&language=ko&format=json`);
+        const reverseData = await reverseRes.json();
+        const place = reverseData.results && reverseData.results[0] ? reverseData.results[0] : {};
+
+        const city = place.name || place.admin1 || '선택 지역';
+        const country = place.country || 'Unknown';
+
+        const weatherRes = await fetch(
+          `${weatherApi}?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,wind_speed_10m,weather_code&timezone=auto`
+        );
+        const weatherData = await weatherRes.json();
+
+        renderWeather({
+          city,
+          country,
+          lat,
+          lon,
+          weather: weatherData.current
+        });
+      } catch (error) {
+        weatherCard.innerHTML = `<div class="empty-state">${error.message}</div>`;
+      }
+    }
+
+    async function fetchWeather(city) {
+      const geoRes = await fetch(`${geoApi}?name=${encodeURIComponent(city)}&count=1&language=ko&format=json`);
+      const geoData = await geoRes.json();
+
+      if (!geoData.results || geoData.results.length === 0) {
+        throw new Error('해당 도시를 찾을 수 없습니다.');
+      }
+
+      const place = geoData.results[0];
+      const weatherRes = await fetch(
+        `${weatherApi}?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,wind_speed_10m,weather_code&timezone=auto`
+      );
+      const weatherData = await weatherRes.json();
+
+      return {
+        city: place.name,
+        country: place.country,
+        lat: place.latitude,
+        lon: place.longitude,
+        weather: weatherData.current
+      };
+    }
+
+    async function searchWeather() {
+      const city = cityInput.value.trim();
+      if (!city) {
+        weatherCard.innerHTML = '<div class="empty-state">도시 이름을 입력해주세요.</div>';
+        return;
+      }
+
+      makeLoadingView();
+
+      try {
+        const result = await fetchWeather(city);
+        renderWeather(result);
+      } catch (error) {
+        weatherCard.innerHTML = `<div class="empty-state">${error.message}</div>`;
+      }
+    }
+
+    searchBtn.addEventListener('click', searchWeather);
+    cityInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        searchWeather();
+      }
+    });
+
+    const defaultWeather = {
+      city: 'Seoul',
+      country: 'KR',
+      lat: 37.5665,
+      lon: 126.978,
+      weather: {
+        weather_code: 1,
+        temperature_2m: 24,
+        apparent_temperature: 25,
+        relative_humidity_2m: 60,
+        precipitation_probability: 20,
+        wind_speed_10m: 5
+      }
+    };
+
+    renderWeather(defaultWeather);
+  </script>
+</body>
+</html>
+
+    const weatherMap = {
+      0: { icon: '☀️', text: '맑음' },
+      1: { icon: '🌤️', text: '대체로 맑음' },
+      2: { icon: '⛅', text: '부분적으로 흐림' },
+      3: { icon: '☁️', text: '흐림' },
+      45: { icon: '🌫️', text: '안개' },
+      48: { icon: '🌫️', text: '서리 안개' },
+      51: { icon: '🌦️', text: '가벼운 이슬비' },
+      53: { icon: '🌦️', text: '이슬비' },
+      55: { icon: '🌧️', text: '강한 이슬비' },
+      56: { icon: '🌧️', text: '약한 빙결 비' },
+      57: { icon: '🌧️', text: '강한 빙결 비' },
+      61: { icon: '🌧️', text: '가벼운 비' },
+      63: { icon: '🌧️', text: '비' },
+      65: { icon: '🌧️', text: '강한 비' },
+      66: { icon: '🌧️', text: '가벼운 우박비' },
+      67: { icon: '🌧️', text: '강한 우박비' },
+      71: { icon: '🌨️', text: '가벼운 눈' },
+      73: { icon: '🌨️', text: '눈' },
+      75: { icon: '🌨️', text: '강한 눈' },
+      77: { icon: '🌨️', text: '눈 알갱이' },
+      80: { icon: '🌦️', text: '소나기' },
+      81: { icon: '🌧️', text: '강한 소나기' },
+      82: { icon: '🌧️', text: '매우 강한 소나기' },
+      85: { icon: '🌨️', text: '가벼운 눈 소나기' },
+      86: { icon: '🌨️', text: '강한 눈 소나기' },
+      95: { icon: '⛈️', text: '뇌우' },
+      96: { icon: '⛈️', text: '뇌우(우박)' },
+      99: { icon: '⛈️', text: '강한 뇌우(우박)' }
+    };
+
+    function renderWeather(data) {
+      const city = data.city;
+      const country = data.country;
+      const weather = data.weather;
+      const info = weatherMap[weather.weather_code] || { icon: '❔', text: '알 수 없음' };
+      const precipitationProbability = weather.precipitation_probability ?? weather.precipitation ?? 0;
+      const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${data.lat},${data.lon}&zoom=8&size=600x300&markers=${data.lat},${data.lon},red-pushpin`;
+
+      weatherCard.innerHTML = `
+        <div class="city-row">
+          <div>
+            <div class="city-name">${city}</div>
+            <span class="country-tag">${country}</span>
+          </div>
+          <div class="weather-icon">${info.icon}</div>
+        </div>
+        <div class="temp">${Math.round(weather.temperature_2m)}°C</div>
+        <div class="description">${info.text}</div>
+        <div class="meta">
+          <div class="meta-item">체감온도: ${Math.round(weather.apparent_temperature)}°C</div>
+          <div class="meta-item">습도: ${weather.relative_humidity_2m}%</div>
+          <div class="meta-item">강수확률: ${precipitationProbability}%</div>
+          <div class="meta-item">풍속: ${weather.wind_speed_10m ?? 0} km/h</div>
+        </div>
+        <div class="map-box">
+          <img src="${mapUrl}" alt="${city} 지도" />
+        </div>
+      `;
+    }
+
+    async function fetchWeather(city) {
+      const geoRes = await fetch(`${geoApi}?name=${encodeURIComponent(city)}&count=1&language=ko&format=json`);
+      const geoData = await geoRes.json();
+
+      if (!geoData.results || geoData.results.length === 0) {
+        throw new Error('해당 도시를 찾을 수 없습니다.');
+      }
+
+      const place = geoData.results[0];
+      const weatherRes = await fetch(
+        `${weatherApi}?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,wind_speed_10m,weather_code&timezone=auto`
+      );
+      const weatherData = await weatherRes.json();
+
+      return {
+        city: place.name,
+        country: place.country,
+        lat: place.latitude,
+        lon: place.longitude,
+        weather: weatherData.current
+      };
+    }
+
+    async function searchWeather() {
+      const city = cityInput.value.trim();
+      if (!city) {
+        weatherCard.innerHTML = '<div class="empty-state">도시 이름을 입력해주세요.</div>';
+        return;
+      }
+
+      weatherCard.innerHTML = '<div class="empty-state">날씨를 불러오는 중...</div>';
+
+      try {
+        const result = await fetchWeather(city);
+        renderWeather(result);
+      } catch (error) {
+        weatherCard.innerHTML = `<div class="empty-state">${error.message}</div>`;
+      }
+    }
+
+    searchBtn.addEventListener('click', searchWeather);
+    cityInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        searchWeather();
+      }
+    });
+
+    searchWeather();
+  </script>
+</body>
+</html>

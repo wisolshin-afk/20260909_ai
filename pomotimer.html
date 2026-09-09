@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pomodoro Timer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --primary: #f87171;
+      --primary-soft: rgba(248, 113, 113, 0.2);
+      --secondary: #22c55e;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --warning: #fbbf24;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, #1e293b, var(--bg));
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      transition: background 0.5s ease;
+    }
+
+    .app {
+      width: min(90vw, 420px);
+      padding: 24px;
+      border-radius: 28px;
+      background: rgba(17, 24, 39, 0.9);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    .timer-wrap {
+      position: relative;
+      width: 260px;
+      height: 260px;
+      margin: 10px auto 24px;
+    }
+
+    .timer-ring {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: conic-gradient(var(--primary) 0deg, var(--primary-soft) 0deg 360deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: background 0.5s ease;
+      box-shadow: inset 0 0 20px rgba(255,255,255,0.08);
+    }
+
+    .timer-ring::before {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      background: var(--panel);
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .timer-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .mode-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .time-display {
+      font-size: clamp(2.4rem, 5vw, 3.4rem);
+      font-weight: bold;
+      letter-spacing: 0.06em;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .start-btn {
+      background: var(--primary);
+      color: white;
+    }
+
+    .pause-btn {
+      background: var(--warning);
+      color: #111827;
+    }
+
+    .reset-btn {
+      background: #334155;
+      color: var(--text);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="timer-wrap">
+      <div class="timer-ring" id="timerRing" aria-label="Pomodoro timer ring">
+        <div class="timer-content">
+          <div class="mode-label" id="modeLabel">Focus</div>
+          <div class="time-display" id="timeDisplay">25:00</div>
+          <div class="status" id="statusText">준비중</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="start-btn" id="startBtn">시작</button>
+      <button class="pause-btn" id="pauseBtn">일시정지</button>
+      <button class="reset-btn" id="resetBtn">리셋</button>
+    </div>
+  </div>
+
+  <script>
+    const WORK_DURATION = 25 * 60;
+    const BREAK_DURATION = 5 * 60;
+
+    let workSeconds = WORK_DURATION;
+    let breakSeconds = BREAK_DURATION;
+    let remainingSeconds = WORK_DURATION;
+    let isRunning = false;
+    let timerId = null;
+    let isWorkSession = true;
+    let endSoundEnabled = true;
+
+    const timerRing = document.getElementById('timerRing');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const modeLabel = document.getElementById('modeLabel');
+    const statusText = document.getElementById('statusText');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function formatTime(totalSeconds) {
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    }
+
+    function updateDisplay() {
+      timeDisplay.textContent = formatTime(remainingSeconds);
+      modeLabel.textContent = isWorkSession ? 'Focus' : 'Break';
+      statusText.textContent = isRunning ? '진행 중' : '준비중';
+
+      const total = isWorkSession ? WORK_DURATION : BREAK_DURATION;
+      const progress = ((total - remainingSeconds) / total) * 360;
+      const ringColor = isWorkSession ? getComputedStyle(document.documentElement).getPropertyValue('--primary') : getComputedStyle(document.documentElement).getPropertyValue('--secondary');
+      const accentSoft = isWorkSession ? 'rgba(248, 113, 113, 0.2)' : 'rgba(34, 197, 94, 0.2)';
+
+      timerRing.style.background = `conic-gradient(${ringColor} ${progress}deg, ${accentSoft} ${progress}deg 360deg)`;
+
+      document.body.style.background = isWorkSession
+        ? 'radial-gradient(circle at top, #1e293b, #0f172a)'
+        : 'radial-gradient(circle at top, #052e16, #0f172a)';
+    }
+
+    function tick() {
+      if (remainingSeconds > 0) {
+        remainingSeconds -= 1;
+        updateDisplay();
+        return;
+      }
+
+      clearInterval(timerId);
+      timerId = null;
+      isRunning = false;
+
+      if (endSoundEnabled) {
+        playAlert();
+      }
+
+      if (isWorkSession) {
+        statusText.textContent = '집중 시간 종료';
+      } else {
+        statusText.textContent = '휴식 시간 종료';
+      }
+
+      isWorkSession = !isWorkSession;
+      remainingSeconds = isWorkSession ? WORK_DURATION : BREAK_DURATION;
+      updateDisplay();
+    }
+
+    function playAlert() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audio = new AudioContext();
+      const oscillator = audio.createOscillator();
+      const gainNode = audio.createGain();
+
+      oscillator.type = 'triangle';
+      oscillator.frequency.value = 880;
+      gainNode.gain.value = 0.0001;
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audio.destination);
+
+      const now = audio.currentTime;
+      gainNode.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+      oscillator.start(now);
+      oscillator.stop(now + 0.65);
+    }
+
+    function startTimer() {
+      if (isRunning) return;
+      isRunning = true;
+      statusText.textContent = '진행 중';
+      timerId = setInterval(tick, 1000);
+      updateDisplay();
+    }
+
+    function pauseTimer() {
+      if (!isRunning) return;
+      isRunning = false;
+      clearInterval(timerId);
+      timerId = null;
+      statusText.textContent = '일시정지';
+      updateDisplay();
+    }
+
+    function resetTimer() {
+      clearInterval(timerId);
+      timerId = null;
+      isRunning = false;
+      isWorkSession = true;
+      remainingSeconds = WORK_DURATION;
+      updateDisplay();
+    }
+
+    startBtn.addEventListener('click', startTimer);
+    pauseBtn.addEventListener('click', pauseTimer);
+    resetBtn.addEventListener('click', resetTimer);
+
+    updateDisplay();
+  </script>
+</body>
+</html>

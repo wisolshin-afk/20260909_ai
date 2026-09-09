@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>명함 카드</title>
+  <style>
+    :root {
+      --bg1: #fdf2f8;
+      --bg2: #e0f2fe;
+      --card1: #7c3aed;
+      --card2: #ec4899;
+      --card3: #0ea5e9;
+      --text-light: #f8fafc;
+      --text-dark: #1f2937;
+      --panel: rgba(255, 255, 255, 0.2);
+      --shadow: rgba(76, 29, 149, 0.2);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      font-family: Arial, sans-serif;
+      color: var(--text-dark);
+    }
+
+    .wrap {
+      width: min(92vw, 980px);
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .form-panel,
+    .card-panel {
+      background: rgba(255, 255, 255, 0.35);
+      border: 1px solid rgba(255,255,255,0.45);
+      border-radius: 28px;
+      box-shadow: 0 18px 40px var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .form-panel {
+      padding: 28px 24px;
+    }
+
+    h2 {
+      margin: 0 0 20px;
+      font-size: 1.6rem;
+      color: #312e81;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.7);
+      outline: none;
+      font-size: 1rem;
+    }
+
+    input:focus {
+      border-color: rgba(124, 58, 237, 0.6);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    }
+
+    .card-panel {
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 480px;
+    }
+
+    .scene {
+      width: min(100%, 380px);
+      height: 230px;
+      perspective: 1000px;
+    }
+
+    .card {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.9s ease;
+      cursor: pointer;
+    }
+
+    .scene:hover .card,
+    .card.is-flipped {
+      transform: rotateY(180deg);
+    }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      backface-visibility: hidden;
+      overflow: hidden;
+      box-shadow: 0 18px 30px rgba(17, 24, 39, 0.18);
+    }
+
+    .front {
+      background: linear-gradient(135deg, var(--card1), var(--card2), var(--card3));
+      color: var(--text-light);
+      padding: 22px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .front::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255,255,255,0.16), transparent 40%, rgba(255,255,255,0.1));
+    }
+
+    .front > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+
+    .name {
+      font-size: clamp(1.7rem, 3vw, 2.3rem);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      font-size: 0.9rem;
+      opacity: 0.94;
+    }
+
+    .back {
+      background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(59,130,246,0.9));
+      transform: rotateY(180deg);
+      color: var(--text-light);
+      padding: 22px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .back .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.8;
+    }
+
+    .back .value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .hint {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 0.85rem;
+      color: #475569;
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="form-panel">
+      <h2>명함 만들기</h2>
+
+      <div class="field">
+        <label for="nameInput">이름</label>
+        <input id="nameInput" type="text" value="김민수" placeholder="이름을 입력하세요" />
+      </div>
+
+      <div class="field">
+        <label for="deptInput">부서</label>
+        <input id="deptInput" type="text" value="마케팅팀" placeholder="부서를 입력하세요" />
+      </div>
+
+      <div class="field">
+        <label for="likeInput">좋아하는 것</label>
+        <input id="likeInput" type="text" value="여행 / 카페" placeholder="좋아하는 것을 입력하세요" />
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="scene" aria-label="명함 카드">
+        <div class="card" id="card">
+          <div class="face front">
+            <div class="brand">
+              <span>Business Card</span>
+              <div class="logo">M</div>
+            </div>
+            <div class="name" id="nameText">김민수</div>
+            <div class="meta">
+              <span id="deptText">마케팅팀</span>
+              <span id="likeText">여행 / 카페</span>
+            </div>
+          </div>
+
+          <div class="face back">
+            <div>
+              <div class="label">Department</div>
+              <div class="value" id="deptBack">마케팅팀</div>
+            </div>
+            <div>
+              <div class="label">Favorite</div>
+              <div class="value" id="likeBack">여행 / 카페</div>
+            </div>
+            <div>
+              <div class="label">Contact</div>
+              <div class="value">hello@company.com</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint">카드를 클릭하면 앞면과 뒷면이 뒤집혀요.</div>
+
+  <script>
+    const nameInput = document.getElementById('nameInput');
+    const deptInput = document.getElementById('deptInput');
+    const likeInput = document.getElementById('likeInput');
+
+    const nameText = document.getElementById('nameText');
+    const deptText = document.getElementById('deptText');
+    const likeText = document.getElementById('likeText');
+    const deptBack = document.getElementById('deptBack');
+    const likeBack = document.getElementById('likeBack');
+    const card = document.getElementById('card');
+
+    function updateCard() {
+      const name = nameInput.value.trim() || '이름';
+      const dept = deptInput.value.trim() || '부서';
+      const like = likeInput.value.trim() || '좋아하는 것';
+
+      nameText.textContent = name;
+      deptText.textContent = dept;
+      likeText.textContent = like;
+      deptBack.textContent = dept;
+      likeBack.textContent = like;
+    }
+
+    [nameInput, deptInput, likeInput].forEach((input) => {
+      input.addEventListener('input', updateCard);
+    });
+
+    card.addEventListener('click', () => {
+      card.classList.toggle('is-flipped');
+    });
+
+    updateCard();
+  </script>
+</body>
+</html>

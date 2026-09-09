@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>연차 계산기</title>
+    <style>
+      :root {
+        --bg1: #0f172a;
+        --bg2: #1e293b;
+        --card: rgba(15, 23, 42, 0.7);
+        --glass: rgba(148, 163, 184, 0.12);
+        --line: rgba(148, 163, 184, 0.25);
+        --text: #e2e8f0;
+        --muted: #cbd5e1;
+        --accent: #7dd3fc;
+        --accent-2: #a78bfa;
+        --success: #34d399;
+        --shadow: rgba(15, 23, 42, 0.45);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+        background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+        color: var(--text);
+      }
+
+      .wrapper {
+        width: min(92vw, 520px);
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        padding: 28px 24px 22px;
+        box-shadow: 0 24px 60px var(--shadow);
+        backdrop-filter: blur(14px);
+      }
+
+      .title {
+        margin: 0 0 8px;
+        font-size: clamp(1.7rem, 3vw, 2.3rem);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+      }
+
+      .subtitle {
+        margin: 0 0 22px;
+        color: var(--muted);
+        font-size: 0.98rem;
+        line-height: 1.6;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      label {
+        font-weight: 700;
+        color: var(--muted);
+      }
+
+      input[type="date"] {
+        width: 100%;
+        padding: 16px 18px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(15, 23, 42, 0.85);
+        color: var(--text);
+        font-size: 1rem;
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      input[type="date"]:focus {
+        border-color: rgba(125, 211, 252, 0.8);
+        box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.18);
+      }
+
+      button {
+        margin-top: 18px;
+        width: 100%;
+        border: none;
+        border-radius: 16px;
+        padding: 16px 20px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #0f172a;
+        font-size: 1rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.16s ease, box-shadow 0.2s ease;
+        box-shadow: 0 16px 28px rgba(125, 211, 252, 0.18);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      .result {
+        margin-top: 22px;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.7));
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 18px 18px 16px;
+      }
+
+      .result-label {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 12px;
+      }
+
+      .days {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 900;
+        letter-spacing: -0.05em;
+      }
+
+      .days strong {
+        font-size: clamp(3rem, 9vw, 5.5rem);
+        line-height: 1;
+        color: var(--success);
+        text-shadow: 0 0 26px rgba(52, 211, 153, 0.28);
+      }
+
+      .days span {
+        font-size: clamp(1.2rem, 3vw, 2rem);
+        color: var(--text);
+      }
+
+      .rule {
+        margin-top: 16px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.6;
+      }
+
+      .error {
+        min-height: 22px;
+        margin-top: 12px;
+        color: #fca5a5;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="card">
+        <h1 class="title">연차 계산기</h1>
+        <p class="subtitle">입사일을 기준으로 올해 발생하는 연차 일수를 계산합니다.</p>
+
+        <div class="field">
+          <label for="joinDate">입사일</label>
+          <input id="joinDate" type="date" />
+        </div>
+
+        <button id="calculateBtn" type="button">계산하기</button>
+
+        <div class="error" id="errorMessage" aria-live="polite"></div>
+
+        <div class="result" aria-live="polite">
+          <div class="result-label">올해 발생 연차</div>
+          <div class="days">
+            <strong id="totalDays">0</strong>
+            <span>일</span>
+          </div>
+        </div>
+
+        <div class="rule">
+          기준: 1년 미만 근속은 월 1개당 1일, 1년 이상은 15일 + 3년마다 1일씩 추가 계산합니다.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const joinDateInput = document.getElementById('joinDate');
+      const calculateBtn = document.getElementById('calculateBtn');
+      const totalDaysEl = document.getElementById('totalDays');
+      const errorMessageEl = document.getElementById('errorMessage');
+
+      const today = new Date();
+      joinDateInput.value = new Date(today.getFullYear(), 0, 1).toISOString().slice(0, 10);
+
+      function calculateAnnualLeaveDays(joinDateValue) {
+        const joinDate = new Date(joinDateValue + 'T00:00:00');
+        const todayDate = new Date();
+
+        if (Number.isNaN(joinDate.getTime())) {
+          return { error: '입사일을 입력해 주세요.' };
+        }
+
+        if (joinDate > todayDate) {
+          return { error: '입사일은 오늘보다 미래일 수 없습니다.' };
+        }
+
+        const yearsWorked = todayDate.getFullYear() - joinDate.getFullYear();
+        const monthsWorked =
+          (todayDate.getMonth() - joinDate.getMonth()) + yearsWorked * 12;
+
+        if (yearsWorked >= 1 || monthsWorked >= 12) {
+          const fullThreeYearBlocks = Math.floor((yearsWorked + (todayDate.getMonth() < joinDate.getMonth() ? -1 : 0)) / 3);
+          return { days: 15 + fullThreeYearBlocks };
+        }
+
+        const months = Math.max(0, monthsWorked);
+        return { days: months };
+      }
+
+      function renderResult() {
+        const value = joinDateInput.value;
+        const result = calculateAnnualLeaveDays(value);
+
+        if (result.error) {
+          errorMessageEl.textContent = result.error;
+          totalDaysEl.textContent = '0';
+          return;
+        }
+
+        errorMessageEl.textContent = '';
+        totalDaysEl.textContent = result.days;
+      }
+
+      calculateBtn.addEventListener('click', renderResult);
+      joinDateInput.addEventListener('change', renderResult);
+
+      renderResult();
+    </script>
+  </body>
+</html>
